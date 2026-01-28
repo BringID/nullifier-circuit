@@ -8,93 +8,134 @@
     * { box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      max-width: 600px;
+      max-width: 800px;
       margin: 40px auto;
       padding: 20px;
       background: #1a1a2e;
       color: #eee;
     }
     h1 { color: #00d4ff; }
-    .input-group {
-      margin: 15px 0;
-    }
-    label {
-      display: block;
-      margin-bottom: 5px;
-      color: #aaa;
-    }
-    input {
+    h2 { color: #00ff88; margin-top: 30px; border-top: 1px solid #333; padding-top: 20px; }
+    .section { margin: 20px 0; padding: 15px; background: #16213e; border-radius: 8px; }
+    .input-group { margin: 15px 0; }
+    label { display: block; margin-bottom: 5px; color: #aaa; }
+    input, textarea {
       width: 100%;
       padding: 10px;
       border: 1px solid #333;
       border-radius: 4px;
-      background: #16213e;
+      background: #0f1729;
       color: #fff;
-      font-size: 16px;
+      font-size: 14px;
+      font-family: monospace;
     }
+    textarea { min-height: 80px; resize: vertical; }
     button {
-      width: 100%;
-      padding: 12px;
-      margin: 10px 0;
+      padding: 12px 24px;
+      margin: 5px;
       border: none;
       border-radius: 4px;
-      font-size: 16px;
+      font-size: 14px;
       cursor: pointer;
       transition: opacity 0.2s;
     }
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    #generateBtn { background: #00d4ff; color: #000; }
-    #verifyBtn { background: #00ff88; color: #000; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #00d4ff; color: #000; }
+    .btn-success { background: #00ff88; color: #000; }
+    .btn-secondary { background: #666; color: #fff; }
     .output {
-      background: #16213e;
+      background: #0f1729;
       padding: 15px;
       border-radius: 4px;
       margin: 15px 0;
       word-break: break-all;
       font-family: monospace;
       font-size: 12px;
+      white-space: pre-wrap;
     }
-    .output h3 { margin-top: 0; color: #00d4ff; }
-    #status {
-      padding: 10px;
-      border-radius: 4px;
-      margin: 10px 0;
-    }
+    #status { padding: 10px; border-radius: 4px; margin: 10px 0; }
     .loading { background: #333; }
     .success { background: #0a3d0a; }
     .error { background: #3d0a0a; }
+    .info-box { background: #1a2744; padding: 10px; border-radius: 4px; margin: 10px 0; font-size: 13px; }
+    .info-box code { background: #0f1729; padding: 2px 6px; border-radius: 3px; }
   </style>
 </head>
 <body>
   <h1>Nullifier Circuit</h1>
-  <p>Generate ZK proofs in your browser using Noir + Barretenberg</p>
-
-  <div class="input-group">
-    <label for="secretBase">Secret Base (private)</label>
-    <input type="text" id="secretBase" value="12345" placeholder="Your secret">
-  </div>
-
-  <div class="input-group">
-    <label for="appId">App ID (public)</label>
-    <input type="text" id="appId" value="1" placeholder="Application ID">
-  </div>
-
-  <div class="input-group">
-    <label for="scope">Scope (public)</label>
-    <input type="text" id="scope" value="100" placeholder="Scope/context">
-  </div>
-
-  <button id="generateBtn">Generate Proof</button>
-  <button id="verifyBtn" disabled>Verify Proof</button>
+  <p>Generate and verify ZK proofs in your browser</p>
 
   <div id="status" class="loading">Initializing WASM modules...</div>
 
-  <div class="output" id="output" style="display: none;">
-    <h3>Results</h3>
-    <div id="results"></div>
+  <!-- PROVER SECTION -->
+  <h2>1. Prover (Generate Proof)</h2>
+  <div class="section">
+    <div class="info-box">
+      The prover knows the <code>secret_base</code> (private) and generates a proof that they know a valid secret
+      for the given <code>app_id</code> and <code>scope</code>.
+    </div>
+
+    <div class="input-group">
+      <label for="secretBase">Secret Base (PRIVATE - never revealed)</label>
+      <input type="text" id="secretBase" value="12345" placeholder="Your secret">
+    </div>
+
+    <div class="input-group">
+      <label for="appId">App ID (public)</label>
+      <input type="text" id="appId" value="1" placeholder="Application ID">
+    </div>
+
+    <div class="input-group">
+      <label for="scope">Scope (public)</label>
+      <input type="text" id="scope" value="100" placeholder="Scope/context">
+    </div>
+
+    <button id="generateBtn" class="btn-primary" disabled>Generate Proof</button>
+  </div>
+
+  <!-- PROOF OUTPUT -->
+  <div id="proofOutput" style="display: none;">
+    <h2>2. Proof Data (Send to Verifier)</h2>
+    <div class="section">
+      <div class="info-box">
+        This is what the prover sends to the verifier. Note: <code>secret_base</code> is NOT included!
+      </div>
+
+      <div class="input-group">
+        <label>Public Inputs (what verifier can see)</label>
+        <div class="output" id="publicInputsDisplay"></div>
+      </div>
+
+      <div class="input-group">
+        <label>Proof (hex)</label>
+        <textarea id="proofHex" readonly></textarea>
+      </div>
+
+      <div class="input-group">
+        <label>Verification Key (hex)</label>
+        <textarea id="vkHex" readonly></textarea>
+      </div>
+
+      <button id="copyProofBtn" class="btn-secondary">Copy Proof Data as JSON</button>
+    </div>
+  </div>
+
+  <!-- VERIFIER SECTION -->
+  <h2>3. Verifier (Verify Proof)</h2>
+  <div class="section">
+    <div class="info-box">
+      The verifier receives proof data and verifies it WITHOUT knowing the <code>secret_base</code>.
+      They only check that someone with a valid secret produced the claimed nullifier.
+    </div>
+
+    <div class="input-group">
+      <label>Paste Proof Data JSON (or use generated proof above)</label>
+      <textarea id="verifyInput" placeholder='{"publicInputs": [...], "proof": "0x...", "vk": "0x..."}'></textarea>
+    </div>
+
+    <button id="verifyBtn" class="btn-success">Verify Proof</button>
+
+    <div id="verifyResult" class="output" style="display: none;"></div>
   </div>
 
   <script type="module" src="/main.js"></script>
