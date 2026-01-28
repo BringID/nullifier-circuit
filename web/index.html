@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nullifier Circuit - Browser Demo</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #1a1a2e;
+      color: #eee;
+    }
+    h1 { color: #00d4ff; }
+    .input-group {
+      margin: 15px 0;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #aaa;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #333;
+      border-radius: 4px;
+      background: #16213e;
+      color: #fff;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    #generateBtn { background: #00d4ff; color: #000; }
+    #verifyBtn { background: #00ff88; color: #000; }
+    .output {
+      background: #16213e;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 15px 0;
+      word-break: break-all;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .output h3 { margin-top: 0; color: #00d4ff; }
+    #status {
+      padding: 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+    .loading { background: #333; }
+    .success { background: #0a3d0a; }
+    .error { background: #3d0a0a; }
+  </style>
+</head>
+<body>
+  <h1>Nullifier Circuit</h1>
+  <p>Generate ZK proofs in your browser using Noir + Barretenberg</p>
+
+  <div class="input-group">
+    <label for="secretBase">Secret Base (private)</label>
+    <input type="text" id="secretBase" value="12345" placeholder="Your secret">
+  </div>
+
+  <div class="input-group">
+    <label for="appId">App ID (public)</label>
+    <input type="text" id="appId" value="1" placeholder="Application ID">
+  </div>
+
+  <div class="input-group">
+    <label for="scope">Scope (public)</label>
+    <input type="text" id="scope" value="100" placeholder="Scope/context">
+  </div>
+
+  <button id="generateBtn">Generate Proof</button>
+  <button id="verifyBtn" disabled>Verify Proof</button>
+
+  <div id="status" class="loading">Initializing WASM modules...</div>
+
+  <div class="output" id="output" style="display: none;">
+    <h3>Results</h3>
+    <div id="results"></div>
+  </div>
+
+  <script type="module" src="/main.js"></script>
+</body>
+</html>

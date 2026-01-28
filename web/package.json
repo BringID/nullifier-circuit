@@ -1,0 +1,20 @@
+{
+  "name": "nullifier-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@aztec/bb.js": "3.0.3",
+    "@noir-lang/noir_js": "1.0.0-beta.18",
+    "@noir-lang/acvm_js": "1.0.0-beta.18",
+    "@noir-lang/noirc_abi": "1.0.0-beta.18"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "vite-plugin-top-level-await": "^1.4.0"
+  }
+}
