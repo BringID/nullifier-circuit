@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source ~/.zshrc)",
+      "Bash(nargo check:*)",
+      "Bash(nargo execute:*)",
+      "Bash(nargo prove:*)",
+      "Bash(nargo --help:*)",
+      "Bash(nargo compile:*)",
+      "Bash(nargo test:*)",
+      "Bash(curl:*)",
+      "Bash(bash)",
+      "Bash(bbup:*)",
+      "WebSearch",
+      "Bash(bb:*)",
+      "Bash(nargo info:*)",
+      "WebFetch(domain:noir-lang.org)",
+      "WebFetch(domain:barretenberg.aztec.network)",
+      "Bash(~/.bb/bb:*)"
+    ]
+  }
+}
