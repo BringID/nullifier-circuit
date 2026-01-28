@@ -1,0 +1,46 @@
+{
+  "name": "@bringid/nullifier",
+  "version": "0.1.0",
+  "description": "Nullifier circuit for privacy-preserving authentication - Semaphore v4 compatible",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "circuit"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@aztec/bb.js": "3.0.3",
+    "@noir-lang/noir_js": "1.0.0-beta.18",
+    "@noir-lang/acvm_js": "1.0.0-beta.18",
+    "@noir-lang/noirc_abi": "1.0.0-beta.18",
+    "poseidon-lite": "^0.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "keywords": [
+    "zk",
+    "zero-knowledge",
+    "nullifier",
+    "semaphore",
+    "noir",
+    "privacy"
+  ]
+}

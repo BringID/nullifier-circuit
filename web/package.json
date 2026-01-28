@@ -8,8 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@aztec/bb.js": "3.0.3",
-    "@noir-lang/noir_js": "1.0.0-beta.18",
+    "@bringid/nullifier": "file:../packages/nullifier",
     "@noir-lang/acvm_js": "1.0.0-beta.18",
     "@noir-lang/noirc_abi": "1.0.0-beta.18"
   },

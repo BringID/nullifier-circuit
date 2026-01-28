@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import topLevelAwait from 'vite-plugin-top-level-await';
+import path from 'path';
 
 export default defineConfig({
   plugins: [topLevelAwait()],
@@ -10,7 +11,7 @@ export default defineConfig({
     esbuildOptions: {
       target: 'esnext',
     },
-    exclude: ['@aztec/bb.js'],
+    exclude: ['@aztec/bb.js', '@bringid/nullifier'],
   },
   resolve: {
     alias: {
@@ -21,6 +22,12 @@ export default defineConfig({
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
+    fs: {
+      // Allow serving files from the packages directory
+      allow: [
+        path.resolve(__dirname, '..'),
+      ],
     },
   },
 });

@@ -1,193 +1,136 @@
-import { Barretenberg, UltraHonkBackend } from '@aztec/bb.js';
-import { Noir } from '@noir-lang/noir_js';
-import initNoirC from '@noir-lang/noirc_abi';
-import initACVM from '@noir-lang/acvm_js';
-
-// Import WASM modules
-import acvm from '@noir-lang/acvm_js/web/acvm_js_bg.wasm?url';
-import noirc from '@noir-lang/noirc_abi/web/noirc_abi_wasm_bg.wasm?url';
-
-// Import compiled circuit
-import circuit from '../target/nullifier_circuit.json';
+import {
+  createIdentity,
+  generateProof,
+  verifyProof,
+  computeNullifier,
+  extractPublicInputs,
+} from "@bringid/nullifier";
 
 // UI elements - Prover
-const secretBaseInput = document.getElementById('secretBase');
-const appIdInput = document.getElementById('appId');
-const scopeInput = document.getElementById('scope');
-const generateBtn = document.getElementById('generateBtn');
-const statusEl = document.getElementById('status');
+const secretBaseInput = document.getElementById("secretBase");
+const appIdInput = document.getElementById("appId");
+const scopeInput = document.getElementById("scope");
+const generateBtn = document.getElementById("generateBtn");
+const statusEl = document.getElementById("status");
 
 // UI elements - Proof Output
-const proofOutput = document.getElementById('proofOutput');
-const publicInputsDisplay = document.getElementById('publicInputsDisplay');
-const proofHex = document.getElementById('proofHex');
-const vkHex = document.getElementById('vkHex');
-const copyProofBtn = document.getElementById('copyProofBtn');
+const proofOutput = document.getElementById("proofOutput");
+const publicInputsDisplay = document.getElementById("publicInputsDisplay");
+const proofHex = document.getElementById("proofHex");
+const vkHex = document.getElementById("vkHex");
+const copyProofBtn = document.getElementById("copyProofBtn");
 
 // UI elements - Verifier
-const verifyInput = document.getElementById('verifyInput');
-const verifyBtn = document.getElementById('verifyBtn');
-const verifyResult = document.getElementById('verifyResult');
+const verifyInput = document.getElementById("verifyInput");
+const verifyBtn = document.getElementById("verifyBtn");
+const verifyResult = document.getElementById("verifyResult");
 
-let noir;
-let backend;
-let api;
 let currentProofData = null;
 
-function setStatus(message, type = 'loading') {
+function setStatus(message, type = "loading") {
   statusEl.textContent = message;
   statusEl.className = type;
 }
 
-function uint8ArrayToHex(arr) {
-  return '0x' + Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+function formatNullifier(n) {
+  return "0x" + n.toString(16).padStart(64, "0");
 }
 
-function hexToUint8Array(hex) {
-  hex = hex.replace(/^0x/, '');
-  const arr = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    arr[i / 2] = parseInt(hex.substr(i, 2), 16);
-  }
-  return arr;
-}
-
-// Initialize WASM modules
+// Initialize - WASM is now auto-initialized by the package
 async function init() {
-  try {
-    setStatus('Initializing WASM modules...');
-
-    // Initialize Noir WASM
-    await Promise.all([
-      initACVM(fetch(acvm)),
-      initNoirC(fetch(noirc))
-    ]);
-
-    // Create Noir instance
-    noir = new Noir(circuit);
-
-    setStatus('Initializing Barretenberg...');
-
-    // Initialize Barretenberg API
-    api = await Barretenberg.new();
-
-    // Create UltraHonk backend with API
-    backend = new UltraHonkBackend(circuit.bytecode, api);
-
-    setStatus('Ready! Enter values and generate a proof.', 'success');
-    generateBtn.disabled = false;
-    verifyBtn.disabled = false;
-  } catch (error) {
-    console.error('Init error:', error);
-    setStatus(`Initialization failed: ${error.message}`, 'error');
-  }
+  setStatus("Ready! Enter values and generate a proof.", "success");
+  generateBtn.disabled = false;
+  verifyBtn.disabled = false;
 }
 
-// Generate proof
-async function generateProof() {
+// Generate proof using @bringid/nullifier
+async function handleGenerateProof() {
   try {
     generateBtn.disabled = true;
-    setStatus('Executing circuit...');
+    setStatus("Creating identity...");
 
-    const inputs = {
-      secret_base: secretBaseInput.value,
-      app_id: appIdInput.value,
-      scope: scopeInput.value,
-    };
+    // Create identity from inputs
+    const identity = createIdentity(
+      secretBaseInput.value,
+      appIdInput.value
+    );
 
-    console.log('Inputs:', inputs);
+    // Preview nullifier (instant, no ZK)
+    const previewNullifier = computeNullifier(identity, scopeInput.value);
+    setStatus(`Generating ZK proof for nullifier ${formatNullifier(previewNullifier).slice(0, 18)}...`);
 
-    // Execute circuit to get witness
-    const { witness, returnValue } = await noir.execute(inputs);
+    // Generate ZK proof
+    const proof = await generateProof(identity, scopeInput.value);
 
-    setStatus('Generating proof (this may take a moment)...');
-
-    // Generate proof
-    const proof = await backend.generateProof(witness);
-
-    // Get verification key
-    const vk = await backend.getVerificationKey();
-
-    // Format nullifier
-    const nullifier = '0x' + BigInt(returnValue).toString(16).padStart(64, '0');
-
-    // Store current proof data
+    // Store for verification
     currentProofData = {
       publicInputs: proof.publicInputs,
-      proof: uint8ArrayToHex(proof.proof),
-      vk: uint8ArrayToHex(vk),
+      proof: proof.proof,
+      vk: proof.verificationKey,
     };
 
     // Display public inputs
+    const { appId, scope, nullifier } = extractPublicInputs(proof);
     publicInputsDisplay.textContent =
-      `app_id:    ${proof.publicInputs[0]}\n` +
-      `scope:     ${proof.publicInputs[1]}\n` +
-      `nullifier: ${nullifier}\n\n` +
+      `app_id:    ${appId}\n` +
+      `scope:     ${scope}\n` +
+      `nullifier: ${formatNullifier(nullifier)}\n\n` +
       `Raw: ${JSON.stringify(proof.publicInputs, null, 2)}`;
 
     // Display proof and VK
-    proofHex.value = currentProofData.proof;
-    vkHex.value = currentProofData.vk;
+    proofHex.value = proof.proof;
+    vkHex.value = proof.verificationKey;
 
     // Auto-fill verifier input
     verifyInput.value = JSON.stringify(currentProofData, null, 2);
 
     // Show proof output section
-    proofOutput.style.display = 'block';
+    proofOutput.style.display = "block";
 
-    setStatus('Proof generated successfully!', 'success');
+    setStatus("Proof generated successfully!", "success");
   } catch (error) {
-    console.error('Generate error:', error);
-    setStatus(`Proof generation failed: ${error.message}`, 'error');
+    console.error("Generate error:", error);
+    setStatus(`Proof generation failed: ${error.message}`, "error");
   } finally {
     generateBtn.disabled = false;
   }
 }
 
 // Copy proof data to clipboard
-function copyProofData() {
+function handleCopyProof() {
   if (currentProofData) {
     navigator.clipboard.writeText(JSON.stringify(currentProofData, null, 2));
-    copyProofBtn.textContent = 'Copied!';
-    setTimeout(() => { copyProofBtn.textContent = 'Copy Proof Data as JSON'; }, 2000);
+    copyProofBtn.textContent = "Copied!";
+    setTimeout(() => {
+      copyProofBtn.textContent = "Copy Proof Data as JSON";
+    }, 2000);
   }
 }
 
-// Verify proof
-async function verifyProof() {
+// Verify proof using @bringid/nullifier
+async function handleVerifyProof() {
   try {
     verifyBtn.disabled = true;
-    setStatus('Verifying proof...');
-    verifyResult.style.display = 'block';
+    setStatus("Verifying proof...");
+    verifyResult.style.display = "block";
 
     // Parse input
     let proofData;
     try {
       proofData = JSON.parse(verifyInput.value);
     } catch (e) {
-      throw new Error('Invalid JSON. Please paste valid proof data.');
+      throw new Error("Invalid JSON. Please paste valid proof data.");
     }
 
-    if (!proofData.publicInputs || !proofData.proof || !proofData.vk) {
-      throw new Error('Missing required fields: publicInputs, proof, vk');
+    if (!proofData.publicInputs || !proofData.proof) {
+      throw new Error("Missing required fields: publicInputs, proof");
     }
 
-    // Convert hex strings back to Uint8Array
-    const proofBytes = hexToUint8Array(proofData.proof);
-    const vkBytes = hexToUint8Array(proofData.vk);
+    // Verify using @bringid/nullifier
+    const isValid = await verifyProof(proofData);
 
-    // Reconstruct ProofData object
-    const proofToVerify = {
-      publicInputs: proofData.publicInputs,
-      proof: proofBytes,
-    };
-
-    // Verify using the verification key
-    // Note: In bb.js 3.x, verifyProof uses the VK from the backend
-    // For standalone verification with a provided VK, we need UltraHonkVerifierBackend
-    const isValid = await backend.verifyProof(proofToVerify);
-
-    const nullifierHex = '0x' + BigInt(proofData.publicInputs[2]).toString(16).padStart(64, '0');
+    // Extract public inputs for display
+    const nullifierHex = "0x" + BigInt(proofData.publicInputs[2]).toString(16).padStart(64, "0");
 
     verifyResult.innerHTML = isValid
       ? `<span style="color: #00ff88">✓ PROOF VALID</span>\n\n` +
@@ -202,20 +145,20 @@ async function verifyProof() {
         `  - The public inputs don't match\n` +
         `  - The prover doesn't know a valid secret`;
 
-    setStatus(isValid ? 'Proof verified!' : 'Proof invalid!', isValid ? 'success' : 'error');
+    setStatus(isValid ? "Proof verified!" : "Proof invalid!", isValid ? "success" : "error");
   } catch (error) {
-    console.error('Verify error:', error);
+    console.error("Verify error:", error);
     verifyResult.innerHTML = `<span style="color: #ff4444">Error: ${error.message}</span>`;
-    setStatus(`Verification failed: ${error.message}`, 'error');
+    setStatus(`Verification failed: ${error.message}`, "error");
   } finally {
     verifyBtn.disabled = false;
   }
 }
 
 // Event listeners
-generateBtn.addEventListener('click', generateProof);
-copyProofBtn.addEventListener('click', copyProofData);
-verifyBtn.addEventListener('click', verifyProof);
+generateBtn.addEventListener("click", handleGenerateProof);
+copyProofBtn.addEventListener("click", handleCopyProof);
+verifyBtn.addEventListener("click", handleVerifyProof);
 generateBtn.disabled = true;
 verifyBtn.disabled = true;
 
