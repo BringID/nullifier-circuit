@@ -1,0 +1,17 @@
+{
+  "name": "nullifier-circuit",
+  "version": "1.0.0",
+  "description": "A Noir circuit implementing a privacy-preserving nullifier scheme using Poseidon hashing.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@semaphore-protocol/core": "^4.14.2",
+    "@semaphore-protocol/identity": "^4.14.2",
+    "poseidon-lite": "^0.3.0"
+  }
+}

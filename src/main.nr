@@ -8,8 +8,8 @@ fn main(
     // Derive identity secret from secret_base and app_id
     let identity_secret = hash_2([secret_base, app_id]);
 
-    // Derive nullifier from identity_secret and scope
-    let nullifier = hash_2([identity_secret, scope]);
+    // Derive nullifier from scope and identity_secret (Semaphore v4 compatible order)
+    let nullifier = hash_2([scope, identity_secret]);
 
     nullifier
 }
@@ -49,7 +49,7 @@ fn test_different_scopes_produce_different_nullifiers() {
 fn test_known_vector() {
     // Test with Prover.toml values - nullifier should match execute output
     let nullifier = main(12345, 1, 100);
-    assert(nullifier == 0x10a8d64a648299a475bcb660649610f1f05501677a1affd1aaee8f549c83ab53);
+    assert(nullifier == 0x028cb81d059c6d5eecc531b003aefff6cd4b6a799b6bdd537a498494763275f7);
 }
 
 #[test]
@@ -59,4 +59,37 @@ fn test_zero_inputs() {
     // Just verify it executes without error and produces a non-zero output
     // (Poseidon hash of zeros is not zero)
     assert(nullifier != 0);
+}
+
+#[test]
+fn test_semaphore_v4_compatibility() {
+    // Verify nullifier derivation matches Semaphore v4 formula:
+    // identity_secret = Poseidon([secret_base, app_id])
+    // nullifier = Poseidon([scope, identity_secret])
+    //
+    // Values verified against @semaphore-protocol/identity's poseidon-lite library
+    // Run: node scripts/compute-nullifier.mjs
+
+    let secret_base: Field = 12345;
+    let app_id: Field = 1;
+    let scope: Field = 100;
+
+    // Step 1: Derive identity_secret (same as our circuit)
+    let identity_secret = hash_2([secret_base, app_id]);
+
+    // Verify identity_secret matches poseidon-lite output
+    // From JS: poseidon2([12345n, 1n]) = 0x0950acb7e532ebb21176a28dee52617a5a37ce9294aab1cf603024e5b9063f9a
+    assert(identity_secret == 0x0950acb7e532ebb21176a28dee52617a5a37ce9294aab1cf603024e5b9063f9a);
+
+    // Step 2: Derive nullifier using Semaphore v4 order: Poseidon([scope, secret])
+    let expected_nullifier = hash_2([scope, identity_secret]);
+
+    // Step 3: Verify our circuit produces the same result
+    let circuit_nullifier = main(secret_base, app_id, scope);
+
+    assert(circuit_nullifier == expected_nullifier);
+
+    // Verify nullifier matches poseidon-lite output
+    // From JS: poseidon2([100n, identity_secret]) = 0x028cb81d059c6d5eecc531b003aefff6cd4b6a799b6bdd537a498494763275f7
+    assert(circuit_nullifier == 0x028cb81d059c6d5eecc531b003aefff6cd4b6a799b6bdd537a498494763275f7);
 }
