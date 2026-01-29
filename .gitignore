@@ -2,3 +2,6 @@ target/
 proofs/
 Verifier.toml
 node_modules/
+cache/
+out/
+*.bin
