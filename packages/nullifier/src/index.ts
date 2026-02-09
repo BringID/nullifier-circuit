@@ -43,6 +43,8 @@ export {
   createIdentity,
   computeNullifier,
   computeNullifierRaw,
+  hashScope,
+  BABY_JUBJUB_SUB_ORDER,
 } from "./identity.js";
 
 // Proof functions

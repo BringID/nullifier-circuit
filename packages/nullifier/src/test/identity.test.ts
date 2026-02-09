@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { createIdentity, computeNullifier, computeNullifierRaw } from "../identity.js";
+import {
+  createIdentity,
+  computeNullifier,
+  computeNullifierRaw,
+  hashScope,
+  BABY_JUBJUB_SUB_ORDER,
+} from "../identity.js";
 
 describe("createIdentity", () => {
   it("should create identity with correct values", () => {
@@ -8,6 +14,7 @@ describe("createIdentity", () => {
     expect(identity.secretBase).toBe(12345n);
     expect(identity.appId).toBe(1n);
     expect(identity.identitySecret).toBeDefined();
+    expect(identity.secretScalar).toBeDefined();
   });
 
   it("should accept string and number inputs", () => {
@@ -17,6 +24,8 @@ describe("createIdentity", () => {
 
     expect(identity1.identitySecret).toBe(identity2.identitySecret);
     expect(identity2.identitySecret).toBe(identity3.identitySecret);
+    expect(identity1.secretScalar).toBe(identity2.secretScalar);
+    expect(identity2.secretScalar).toBe(identity3.secretScalar);
   });
 
   it("should produce deterministic identity secret", () => {
@@ -24,6 +33,7 @@ describe("createIdentity", () => {
     const identity2 = createIdentity(12345n, 1n);
 
     expect(identity1.identitySecret).toBe(identity2.identitySecret);
+    expect(identity1.secretScalar).toBe(identity2.secretScalar);
   });
 
   it("should produce different secrets for different inputs", () => {
@@ -36,11 +46,40 @@ describe("createIdentity", () => {
   });
 
   it("should match expected identity secret value (Semaphore compatible)", () => {
-    // This value was verified against poseidon-lite directly
     const identity = createIdentity(12345n, 1n);
     expect(identity.identitySecret).toBe(
       0x0950acb7e532ebb21176a28dee52617a5a37ce9294aab1cf603024e5b9063f9an
     );
+  });
+
+  it("should compute secretScalar as identitySecret % SUB_ORDER", () => {
+    const identity = createIdentity(12345n, 1n);
+    expect(identity.secretScalar).toBe(
+      identity.identitySecret % BABY_JUBJUB_SUB_ORDER
+    );
+    expect(identity.secretScalar).toBe(
+      0x034422e9890cb7acda6c99d71e22366eaef8e0da5b89c3c4f8bd8d097fe518a9n
+    );
+  });
+});
+
+describe("hashScope", () => {
+  it("should hash scope with keccak256 >> 8", () => {
+    const hashed = hashScope(100n);
+    expect(hashed).toBe(
+      0x0026700e13983fefbd9cf16da2ed70fa5c6798ac55062a4803121a869731e308n
+    );
+  });
+
+  it("should produce different hashes for different scopes", () => {
+    const hash1 = hashScope(100n);
+    const hash2 = hashScope(200n);
+    expect(hash1).not.toBe(hash2);
+  });
+
+  it("should fit within 248 bits (safe for BN254)", () => {
+    const hashed = hashScope(100n);
+    expect(hashed < 2n ** 248n).toBe(true);
   });
 });
 
@@ -70,12 +109,12 @@ describe("computeNullifier", () => {
   });
 
   it("should match expected value (Semaphore v4 compatible)", () => {
-    // This value was verified against poseidon-lite and our Noir circuit
+    // poseidon2([hashScope(100), secretScalar])
     const identity = createIdentity(12345n, 1n);
     const nullifier = computeNullifier(identity, 100n);
 
     expect(nullifier).toBe(
-      0x028cb81d059c6d5eecc531b003aefff6cd4b6a799b6bdd537a498494763275f7n
+      0x2c73821ec1394f339024d4b025a9aee7967915af6494d2e4c6bc09baa442e6f0n
     );
   });
 });
@@ -85,7 +124,7 @@ describe("computeNullifierRaw", () => {
     const nullifier = computeNullifierRaw(12345n, 1n, 100n);
 
     expect(nullifier).toBe(
-      0x028cb81d059c6d5eecc531b003aefff6cd4b6a799b6bdd537a498494763275f7n
+      0x2c73821ec1394f339024d4b025a9aee7967915af6494d2e4c6bc09baa442e6f0n
     );
   });
 

@@ -8,6 +8,8 @@ export type NullifierIdentity = {
   appId: bigint;
   /** The derived identity secret: poseidon([secretBase, appId]) */
   identitySecret: bigint;
+  /** The reduced secret scalar: identitySecret % BABY_JUBJUB_SUB_ORDER */
+  secretScalar: bigint;
 };
 
 /**

@@ -6,7 +6,7 @@ import type {
   NullifierProofWithVK,
   ProofOptions,
 } from "./types.js";
-import { computeNullifier } from "./identity.js";
+import { computeNullifier, hashScope, BABY_JUBJUB_SUB_ORDER } from "./identity.js";
 
 // Circuit will be loaded dynamically
 let circuitPromise: Promise<any> | null = null;
@@ -164,7 +164,7 @@ function fromHex(hex: string): Uint8Array {
  * Generate a ZK proof that you know the secret for a nullifier.
  *
  * @param identity - The nullifier identity
- * @param scope - The scope/context for this proof
+ * @param scope - The raw scope/context for this proof (will be hashed internally)
  * @param options - Proof generation options
  * @returns The proof data including nullifier and ZK proof
  *
@@ -184,14 +184,22 @@ export async function generateProof(
 
   const { noir, backend } = await initialize();
 
+  // Hash scope to match Semaphore v4
+  const hashedScope = hashScope(scopeBigInt);
+
+  // Compute witness values for modular reduction
+  const quotient = identity.identitySecret / BABY_JUBJUB_SUB_ORDER;
+
   const inputs = {
     secret_base: identity.secretBase.toString(),
+    secret_scalar: identity.secretScalar.toString(),
+    quotient: quotient.toString(),
     app_id: identity.appId.toString(),
-    scope: scopeBigInt.toString(),
+    scope: hashedScope.toString(),
   };
 
   const { witness, returnValue } = await noir.execute(inputs);
-  const proofData = await backend.generateProof(witness);
+  const proofData = await backend.generateProof(witness, { verifierTarget: 'evm' });
   const nullifier = BigInt(returnValue as string);
 
   const expectedNullifier = computeNullifier(identity, scopeBigInt);
@@ -207,7 +215,7 @@ export async function generateProof(
   };
 
   if (includeVK) {
-    const vk = await backend.getVerificationKey();
+    const vk = await backend.getVerificationKey({ verifierTarget: 'evm' });
     result.verificationKey = toHex(vk);
   }
 
@@ -230,7 +238,7 @@ export async function verifyProof(
     proof: fromHex(proof.proof),
   };
 
-  return backend.verifyProof(proofData);
+  return backend.verifyProof(proofData, { verifierTarget: 'evm' });
 }
 
 /**

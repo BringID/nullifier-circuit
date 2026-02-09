@@ -48,18 +48,25 @@ npm run web:build    # Production build
 ## Architecture
 
 ### Circuit (`src/main.nr`)
-The circuit takes `secret_base` (private), `app_id` (public), `scope` (public) and returns a public `nullifier`. Two-step Poseidon2 hash: `identity_secret = poseidon(secret_base, app_id)`, then `nullifier = poseidon(scope, identity_secret)`. The hash ordering `[scope, identity_secret]` matches Semaphore v4.
+The circuit takes `secret_base` (private), `secret_scalar` (private witness), `quotient` (private witness), `app_id` (public), `scope` (public, pre-hashed) and returns a public `nullifier`.
+
+Three-step derivation:
+1. `identity_secret = poseidon2([secret_base, app_id])`
+2. Constrained modular reduction: `identity_secret == quotient * SUB_ORDER + secret_scalar` with range checks (`quotient < 8`, `secret_scalar < SUB_ORDER`)
+3. `nullifier = poseidon2([scope, secret_scalar])`
+
+The `scope` public input is already hashed by the caller (`keccak256(raw_scope) >> 8`). The `secret_scalar` is `identity_secret % BABY_JUBJUB_SUB_ORDER`, matching Semaphore v4's requirement that the secret be less than the BabyJubJub subgroup order.
 
 ### TypeScript SDK (`packages/nullifier/src/`)
-- **identity.ts** — `createIdentity()` and `computeNullifier()` using `poseidon-lite` (no circuit needed)
-- **proof.ts** — WASM-based proof generation/verification via `@noir-lang/noir_js` and `@aztec/bb.js`. Handles auto WASM initialization for browsers. Call `cleanup()` to free WASM resources
-- **types.ts** — `NullifierIdentity`, `NullifierProof`, `NullifierProofWithVK`
+- **identity.ts** — `createIdentity()`, `computeNullifier()`, `hashScope()` using `poseidon-lite` and `js-sha3`. Exports `BABY_JUBJUB_SUB_ORDER` constant. `createIdentity()` computes both `identitySecret` and `secretScalar` (= identitySecret % SUB_ORDER). `computeNullifier()` hashes the scope and uses `secretScalar`
+- **proof.ts** — WASM-based proof generation/verification via `@noir-lang/noir_js` and `@aztec/bb.js`. Handles scope hashing and witness computation (secret_scalar, quotient) before calling the circuit. Call `cleanup()` to free WASM resources
+- **types.ts** — `NullifierIdentity` (includes `secretScalar`), `NullifierProof`, `NullifierProofWithVK`
 
 The compiled circuit artifact lives at `packages/nullifier/circuit/nullifier_circuit.json`.
 
 ### Solidity Contracts (`contracts/`)
 - **HonkVerifier.sol** — Auto-generated from `nargo contract`. Do not edit manually
-- **NullifierVerifier.sol** — Application contract that wraps HonkVerifier, tracks used nullifiers via mapping, and emits `NullifierUsed` events. Prevents double-spending
+- **NullifierVerifier.sol** — Application contract that wraps HonkVerifier, tracks used nullifiers via mapping, and emits `NullifierUsed` events. Hashes the scope (`keccak256(scope) >> 8`) before constructing public inputs to match Semaphore v4. Prevents double-spending
 
 ### Web Demo (`web/`)
 Vanilla JS + Vite. Requires COOP/COEP headers for SharedArrayBuffer (WASM threads). Uses `vite-plugin-top-level-await` for async WASM init.
@@ -67,8 +74,8 @@ Vanilla JS + Vite. Requires COOP/COEP headers for SharedArrayBuffer (WASM thread
 ## Deployment
 
 ### Base Sepolia
-- **HonkVerifier:** `0x342F55472e3B4d82bF19F4248a04106CBc067b13`
-- **NullifierVerifier:** `0xf320A18Fd92a638911904A4864824368890Fc148`
+- **HonkVerifier:** `0x340b5C66B8B392A566C48fdf6Dd8aB1DbD7368f9`
+- **NullifierVerifier:** `0x65AC244c6c35F57cB310B98F0b1f47c16aD0eCf1`
 - Both contracts verified on Basescan
 
 ### Deploy Commands
@@ -98,6 +105,29 @@ The `NUMBER_OF_PUBLIC_INPUTS = 19` in HonkVerifier includes 16 pairing point slo
 
 Barretenberg (`@aztec/bb.js`) is pinned to **3.0.3** and Noir JS packages to **1.0.0-beta.18**. These must stay in sync — mismatched versions will cause proof generation failures.
 
+## Semaphore v4 Compatibility
+
+The nullifier must match what Semaphore v4 produces for the same identity. The full derivation:
+```
+identitySecret = poseidon2([secretBase, appId])
+secretScalar = identitySecret % BABY_JUBJUB_SUB_ORDER
+hashedScope = keccak256(scope_as_bytes32) >> 8
+nullifier = poseidon2([hashedScope, secretScalar])
+```
+
+Key constants:
+- `BABY_JUBJUB_SUB_ORDER = 2736030358979909402780800718157159386076813972158567259200215660948447373041` (~2^251)
+- Scope hashing (`keccak256 >> 8`) ensures the result fits in 248 bits, safely within the BN254 field
+- The subOrder reduction is proven in-circuit via witness variables (`secret_scalar`, `quotient`) with range checks
+
 ## Verification Script
 
 `node scripts/compute-nullifier.mjs` — Verifies Poseidon hash outputs match between the Noir circuit, TypeScript SDK, and Semaphore v4. Use this after changing hash logic.
+
+## CRS Cache
+
+Barretenberg (`bb`) downloads the BN254 CRS from `http://crs.aztec.network/g1.dat`. If this fails (e.g., VPN blocking HTTP, server down), manually download via HTTPS:
+```bash
+curl -sL -r 0-1048575 -o ~/.bb-crs/bn254_g1.dat "https://crs.aztec.network/g1.dat"
+```
+The cached file at `~/.bb-crs/bn254_g1.dat` is used automatically by `bb`. 1MB is sufficient for this circuit.

@@ -21,7 +21,8 @@ contract NullifierVerifierTest is Test {
         proofBytes = vm.readFileBinary("target/proof_keccak/proof");
         appId = 1;
         scope = 100;
-        nullifier = bytes32(hex"028cb81d059c6d5eecc531b003aefff6cd4b6a799b6bdd537a498494763275f7");
+        // Nullifier = poseidon2([hashScope(100), secretScalar]) where secretScalar = identitySecret % subOrder
+        nullifier = bytes32(hex"2c73821ec1394f339024d4b025a9aee7967915af6494d2e4c6bc09baa442e6f0");
     }
 
     function test_validProof() public {
@@ -53,5 +54,12 @@ contract NullifierVerifierTest is Test {
     function test_wrongInputsReverts() public {
         vm.expectRevert();
         nullifierVerifier.verifyProof(nullifier, 999, scope, proofBytes);
+    }
+
+    function test_scopeHashing() public pure {
+        // Verify the scope hashing matches our expected value
+        // keccak256(abi.encodePacked(uint256(100))) >> 8
+        uint256 hashedScope = uint256(keccak256(abi.encodePacked(uint256(100)))) >> 8;
+        assert(hashedScope == 0x0026700e13983fefbd9cf16da2ed70fa5c6798ac55062a4803121a869731e308);
     }
 }

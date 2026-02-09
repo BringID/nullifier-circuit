@@ -28,9 +28,10 @@ contract NullifierVerifier {
         }
 
         // Public inputs order must match the circuit: appId, scope, nullifier
+        // Scope is hashed to match Semaphore v4: keccak256(scope) >> 8
         bytes32[] memory publicInputs = new bytes32[](3);
         publicInputs[0] = bytes32(appId);
-        publicInputs[1] = bytes32(scope);
+        publicInputs[1] = bytes32(uint256(keccak256(abi.encodePacked(scope))) >> 8);
         publicInputs[2] = nullifier;
 
         bool success = verifier.verify(proof, publicInputs);
