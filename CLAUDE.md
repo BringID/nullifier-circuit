@@ -17,10 +17,10 @@ nargo test           # Run all circuit tests
 nargo test test_name # Run a specific test
 ```
 
-### Proof Generation (requires Barretenberg CLI)
+### Proof Generation (requires Barretenberg CLI at `~/.bb/bb`)
 ```bash
-bb prove -b ./target/nullifier_circuit.json -w ./target/nullifier_circuit.gz -o ./target/proof --write_vk
-bb verify -k ./target/proof/vk -p ./target/proof/proof -i ./target/proof/public_inputs
+~/.bb/bb prove -b ./target/nullifier_circuit.json -w ./target/nullifier_circuit.gz -o ./target/proof --verifier_target evm --write_vk
+~/.bb/bb verify -k ./target/proof/vk -p ./target/proof/proof
 ```
 
 ### TypeScript SDK (`packages/nullifier/`)
@@ -63,6 +63,36 @@ The compiled circuit artifact lives at `packages/nullifier/circuit/nullifier_cir
 
 ### Web Demo (`web/`)
 Vanilla JS + Vite. Requires COOP/COEP headers for SharedArrayBuffer (WASM threads). Uses `vite-plugin-top-level-await` for async WASM init.
+
+## Deployment
+
+### Base Sepolia
+- **HonkVerifier:** `0x342F55472e3B4d82bF19F4248a04106CBc067b13`
+- **NullifierVerifier:** `0xf320A18Fd92a638911904A4864824368890Fc148`
+- Both contracts verified on Basescan
+
+### Deploy Commands
+```bash
+# Set env vars in .env: PRIVATE_KEY, ETHERSCAN_API_KEY
+source .env
+forge script script/Deploy.s.sol --rpc-url base_sepolia --broadcast
+# Verify on Basescan:
+forge verify-contract <address> HonkVerifier --chain base-sepolia --etherscan-api-key "$ETHERSCAN_API_KEY" --watch
+forge verify-contract <address> NullifierVerifier --chain base-sepolia --etherscan-api-key "$ETHERSCAN_API_KEY" --constructor-args $(cast abi-encode "constructor(address)" <HonkVerifierAddress>) --watch
+```
+
+### Notes
+- HonkVerifier is close to the 24KB EIP-170 contract size limit. `optimizer_runs` is set to `1` in `foundry.toml` to keep bytecode small enough. Do not increase without checking contract size.
+- `PRIVATE_KEY` in `.env` works with or without `0x` prefix (handled in `script/Deploy.s.sol`).
+- `via_ir = true` causes stack-too-deep errors with HonkVerifier — do not enable.
+
+## Gas & ZK Design Decisions
+
+On-chain proof verification costs ~2.3M gas. This is expected for UltraHonk ZK verification — dominated by BN254 elliptic curve precompile calls (ecMul, ecAdd, ecPairing) in sumcheck and Shplemini steps.
+
+**ZK mode must stay enabled (`--verifier_target evm`, not `evm-no-zk`).** Disabling ZK would make proofs deterministic and linkable — an observer could correlate proofs from the same `secret_base` across different scopes/apps by comparing wire commitments (w1, w2, w3), breaking unlinkability. The `--optimized` flag on `bb write_solidity_verifier` produces identical output on bb 3.0.3.
+
+The `NUMBER_OF_PUBLIC_INPUTS = 19` in HonkVerifier includes 16 pairing point slots for ZK Libra masking — only 3 are logical circuit public inputs (app_id, scope, nullifier).
 
 ## Key Version Constraints
 

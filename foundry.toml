@@ -4,3 +4,11 @@ test = "test"
 out = "out"
 libs = ["lib"]
 fs_permissions = [{ access = "read", path = "target" }]
+optimizer = true
+optimizer_runs = 1
+
+[rpc_endpoints]
+base_sepolia = "https://sepolia.base.org"
+
+[etherscan]
+base_sepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://api-sepolia.basescan.org/api" }
